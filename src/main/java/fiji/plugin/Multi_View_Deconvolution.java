@@ -30,6 +30,7 @@ import mpicbg.spim.postprocessing.deconvolution2.CUDAConvolution;
 import mpicbg.spim.postprocessing.deconvolution2.LRFFT;
 import mpicbg.spim.postprocessing.deconvolution2.LRFFT.PSFTYPE;
 import mpicbg.spim.postprocessing.deconvolution2.LRInput;
+import mpicbg.spim.postprocessing.deconvolution2.mapg.MAPG;
 import mpicbg.spim.registration.ViewDataBeads;
 import mpicbg.spim.registration.ViewStructure;
 
@@ -45,7 +46,7 @@ public class Multi_View_Deconvolution implements PlugIn
 	final private String myURL = "http://fly.mpi-cbg.de/preibisch";
 	
 	// for optimization of block size this is essential
-	public static boolean makeAllPSFSameSize = false;
+	public static boolean makeAllPSFSameSize = true;
 		
 	// used in case psfSize3d == null
 	public static int psfSize = 17;
@@ -167,14 +168,20 @@ public class Multi_View_Deconvolution implements PlugIn
 		IJ.log( "ImgLib container (input): " + conf.outputImageFactory.getClass().getSimpleName() );
 		IJ.log( "ImgLib container (output): " + conf.imageFactory.getClass().getSimpleName() );
 		
+		/*
 		if ( useTikhonovRegularization )
 			IJ.log( "Using Tikhonov regularization (lambda = " + lambda + ")" );
 		else
 			IJ.log( "Not using Tikhonov regularization" );
-
+		*/
+		
+		IJ.log( "Running MAPG ... " );
+		
 		// set debug mode
 		BayesMVDeconvolution.debug = debugMode;
 		BayesMVDeconvolution.debugInterval = debugInterval;
+		MAPG.debug = debugMode;
+		MAPG.debugInterval = debugInterval;
 		
 		for ( int view = 0; view < numViews; ++view )
 		{
@@ -200,10 +207,13 @@ public class Multi_View_Deconvolution implements PlugIn
 			deconvolved = LucyRichardsonMultiViewDeconvolution.lucyRichardsonMultiView( deconvolutionData, minNumIterations, maxNumIterations, multiplicative, 0, paralellViews );
 		*/
 		
+		deconvolved = new MAPG( deconvolutionData, numIterations, "deconvolved" ).getPsi();
+		/*
 		if ( useTikhonovRegularization )
 			deconvolved = new BayesMVDeconvolution( deconvolutionData, iterationType, numIterations, lambda, "deconvolved" ).getPsi();
 		else
 			deconvolved = new BayesMVDeconvolution( deconvolutionData, iterationType, numIterations, 0, "deconvolved" ).getPsi();
+		*/
 		
 		if ( conf.writeOutputImage > 0 || conf.showOutputImage )
 		{
