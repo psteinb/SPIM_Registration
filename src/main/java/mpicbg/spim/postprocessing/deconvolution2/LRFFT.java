@@ -22,7 +22,7 @@ import mpicbg.imglib.type.numeric.real.FloatType;
 
 public class LRFFT 
 {
-	public static enum PSFTYPE { OPTIMIZATION_II, OPTIMIZATION_I, EFFICIENT_BAYESIAN, INDEPENDENT };
+	public static enum PSFTYPE { OPTIMIZATION_II, OPTIMIZATION_I, EFFICIENT_BAYESIAN, INDEPENDENT, MAPG };
 	
 	public static CUDAConvolution cuda = null;
 	
@@ -135,7 +135,11 @@ public class LRFFT
 			numViews = 1;
 		}
 		
-		if ( numViews == 1 || iterationType == PSFTYPE.INDEPENDENT )
+		if ( iterationType == PSFTYPE.MAPG )
+		{	
+			this.kernel2 = null;
+		}
+		else if ( numViews == 1 || iterationType == PSFTYPE.INDEPENDENT )
 		{
 			// compute the inverted kernel (switch dimensions)
 			this.kernel2 = computeInvertedKernel( this.kernel1 );
