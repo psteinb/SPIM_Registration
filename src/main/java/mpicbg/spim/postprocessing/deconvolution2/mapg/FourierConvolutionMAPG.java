@@ -41,12 +41,14 @@ import mpicbg.imglib.cursor.LocalizableByDimCursor;
 import mpicbg.imglib.cursor.LocalizableCursor;
 import mpicbg.imglib.image.Image;
 import mpicbg.imglib.image.ImageFactory;
+import mpicbg.imglib.image.display.imagej.ImageJFunctions;
 import mpicbg.imglib.multithreading.Chunk;
 import mpicbg.imglib.multithreading.SimpleMultiThreading;
 import mpicbg.imglib.outofbounds.OutOfBoundsStrategyFactory;
 import mpicbg.imglib.outofbounds.OutOfBoundsStrategyMirrorFactory;
 import mpicbg.imglib.type.numeric.RealType;
 import mpicbg.imglib.type.numeric.complex.ComplexFloatType;
+import mpicbg.imglib.type.numeric.real.FloatType;
 
 /**
  * Specialized implementation of the Fourier Convolution based on the python code of Verveer et al., Nature Methods (2007)
@@ -59,8 +61,9 @@ public class FourierConvolutionMAPG<T extends RealType<T>, S extends RealType<S>
 	
 	final ArrayList<Image<T>> images;
 	final ArrayList<Image<S>> kernels;
+	final ArrayList<Image<T>> weights;
 	
-	Image< ComplexFloatType > total, total_otf = null;
+	Image< ComplexFloatType > total_otf = null;
 	
 	final ArrayList<Image<ComplexFloatType>> kernelFFTs, imgFFTs; 
 	
@@ -72,7 +75,7 @@ public class FourierConvolutionMAPG<T extends RealType<T>, S extends RealType<S>
 	int numThreads;
 	long processingTime;
 
-	public FourierConvolutionMAPG( final ArrayList<Image<T>> images, final ArrayList<Image<S>> kernels )
+	public FourierConvolutionMAPG( final ArrayList<Image<T>> images, final ArrayList<Image<S>> kernels, final ArrayList<Image<T>> weights )
 	{
 		if ( images == null || kernels == null || images.size() == 0 || images.size() != kernels.size() )
 			throw new RuntimeException( "Same number (>0) of images and kernels required." );
@@ -95,6 +98,7 @@ public class FourierConvolutionMAPG<T extends RealType<T>, S extends RealType<S>
 
 		this.images = images;
 		this.kernels = kernels;
+		this.weights = weights;
 		
 		this.kernelFFTs = null;
 		this.imgFFTs = null;
@@ -108,7 +112,9 @@ public class FourierConvolutionMAPG<T extends RealType<T>, S extends RealType<S>
 	public Image< T > matrix_transpose_multiply() 
 	{		
 		final long startTime = System.currentTimeMillis();
-		FourierTransform<T, ComplexFloatType> fftImg0 = null;
+		
+		final Image< T > result = images.get( 0 ).createNewImage();
+		final Image< T > weights = result.createNewImage();
 		
 		//
 		// compute fft of the input image
@@ -144,9 +150,6 @@ public class FourierConvolutionMAPG<T extends RealType<T>, S extends RealType<S>
 				errorMessage = "FFT of image failed: " + fftImg.getErrorMessage();
 				return null;			
 			}
-			
-			if ( fftImg0 == null )
-				fftImg0 = fftImg;
 			
 			//
 			// Rearrange FFT of kernel
@@ -198,9 +201,6 @@ public class FourierConvolutionMAPG<T extends RealType<T>, S extends RealType<S>
 			}		
 			kernelTemplate.close();
 							
-			if ( total == null )
-				total = fftImg.getResult().createNewImage();
-			
 			if ( total_otf == null )
 				total_otf = fftImg.getResult().createNewImage();
 			
@@ -226,11 +226,46 @@ public class FourierConvolutionMAPG<T extends RealType<T>, S extends RealType<S>
 	                	// get chunk of pixels to process
 	                	final Chunk myChunk = threadChunks.get( ai.getAndIncrement() );
 	                	
-	    				sumUpConjugateMultiply( myChunk.getStartPosition(), myChunk.getLoopSize(), cotf, fftImg.getResult(), total );
+	                	// overwrite fftImg.getResult
+	    				conjugateMultiply( myChunk.getStartPosition(), myChunk.getLoopSize(), cotf, fftImg.getResult() );
 	                }
 	            });
 	        
 	        SimpleMultiThreading.startAndJoin( threads );
+	        
+	        //
+			// Compute inverse Fourier Transform of the multiplication
+			//		
+			final InverseFourierTransform<T, ComplexFloatType> invFFT = new InverseFourierTransform<T, ComplexFloatType>( fftImg.getResult(), fftImg );
+			invFFT.setInPlaceTransform( true );
+			invFFT.setNumThreads( this.getNumThreads() );
+
+			if ( !invFFT.checkInput() || !invFFT.process() )
+			{
+				errorMessage = "InverseFFT of image failed: " + invFFT.getErrorMessage();
+				return null;			
+			}
+						
+			//
+			// sum up with weights
+			//
+			final Cursor< T > weightsCursor = weights.createCursor();
+			final Cursor< T > resultCursor = result.createCursor();
+			
+			final Cursor< T > invFFTCursor = invFFT.getResult().createCursor();
+			final Cursor< T > weightInCursor = this.weights.get( v ).createCursor();
+	        
+			while( resultCursor.hasNext() )
+			{
+				weightsCursor.fwd();
+				resultCursor.fwd();
+				
+				final double w = weightInCursor.next().getRealDouble();
+				final double i = invFFTCursor.next().getRealDouble();
+				
+				resultCursor.getType().setReal( resultCursor.getType().getRealDouble() + i * w );
+				weightsCursor.getType().setReal( weightsCursor.getType().getRealDouble() + w );
+			}
 
 	        //
 	        // compute otf * cotf
@@ -251,28 +286,31 @@ public class FourierConvolutionMAPG<T extends RealType<T>, S extends RealType<S>
 	        SimpleMultiThreading.startAndJoin( threads );
 		}
 		
-		for ( final ComplexFloatType t : total )
-			t.mul( 1.0 / (double)numViews );
+		//
+		// normalize
+		//
+		final Cursor< T > weightsCursor = weights.createCursor();
+		final Cursor< T > resultCursor = result.createCursor();
+
+		while( resultCursor.hasNext() )
+		{
+			weightsCursor.fwd();
+			resultCursor.fwd();
+			
+			resultCursor.getType().setReal( resultCursor.getType().getRealDouble() / weightsCursor.getType().getRealDouble() );
+			
+		}
+		
+		weights.close();
+		
+		ImageJFunctions.show( result ).setTitle( "total" );
 
 		for ( final ComplexFloatType t : total_otf )
 			t.mul( 1.0 / (double)numViews );
 
-		//
-		// Compute inverse Fourier Transform
-		//		
-		final InverseFourierTransform<T, ComplexFloatType> invFFT = new InverseFourierTransform<T, ComplexFloatType>( total, fftImg0 );
-		invFFT.setInPlaceTransform( true );
-		invFFT.setNumThreads( this.getNumThreads() );
-
-		if ( !invFFT.checkInput() || !invFFT.process() )
-		{
-			errorMessage = "InverseFFT of image failed: " + invFFT.getErrorMessage();
-			return null;			
-		}
-				
 		processingTime = System.currentTimeMillis() - startTime;
 		
-        return invFFT.getResult();
+        return result;
 	}
 	
 	public Image< T > matrix_multiply_twice( final Image< T > input )
@@ -355,40 +393,29 @@ public class FourierConvolutionMAPG<T extends RealType<T>, S extends RealType<S>
 	}
 	
 
-	private final static void sumUpConjugateMultiply( final long start, final long loopSize, final Image< ComplexFloatType > fftkernel, final Image< ComplexFloatType > fftimg, final Image< ComplexFloatType > target )
+	private final static void conjugateMultiply( final long start, final long loopSize, final Image< ComplexFloatType > fftkernel, final Image< ComplexFloatType > fftimg )
 	{
 		final Cursor<ComplexFloatType> cursorK = fftkernel.createCursor();
 		final Cursor<ComplexFloatType> cursorI = fftimg.createCursor();
-		final Cursor<ComplexFloatType> cursorT = target.createCursor();
 		
 		cursorK.fwd( start );
 		cursorI.fwd( start );
-		cursorT.fwd( start );
-		
 		final ComplexFloatType t = new ComplexFloatType();
 		
 		for ( long l = 0; l < loopSize; ++l )
 		{
 			cursorK.fwd();
 			cursorI.fwd();
-			cursorT.fwd();
 			
 			// complex conjugate of kernel (permanent)
 			cursorK.getType().complexConjugate();
-			
-			// set it to temp
-			t.set( cursorK.getType() );
-			
-			// multiply image
-			t.mul( cursorI.getType() );
-			
-			// add to target
-			cursorT.getType().add( t );
+						
+			// multiply with image
+			cursorI.getType().mul( cursorK.getType() );
 		}
 		
 		cursorK.close();
 		cursorI.close();
-		cursorT.close();
 	}
 
 	private final static void sumMultiply( final long start, final long loopSize, final Image< ComplexFloatType > fftOTF, final Image< ComplexFloatType > fftCOTF, final Image< ComplexFloatType > target )

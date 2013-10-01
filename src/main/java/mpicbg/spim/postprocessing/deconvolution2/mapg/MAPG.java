@@ -28,7 +28,7 @@ public class MAPG
 	final int numViews, numDimensions;
 	final LRInput views;
 	final ArrayList<LRFFT> inputdata;
-	final ArrayList< Image< FloatType > > images, kernels;
+	final ArrayList< Image< FloatType > > images, kernels, weights;
 	final float avg;
 	
 	final Image< FloatType > estimation;
@@ -57,16 +57,19 @@ public class MAPG
 		
 		this.images = new ArrayList<Image<FloatType>>();
 		this.kernels = new ArrayList<Image<FloatType>>();
+		this.weights = new ArrayList<Image<FloatType>>();
+		
 		for ( int v = 0; v < numViews; ++v )
 		{
 			this.images.add( inputdata.get( v ).getImage() );
 			this.kernels.add( inputdata.get( v ).getKernel1() );
+			this.weights.add( inputdata.get( v ).getWeight() );
 		}
 		
 		this.estimation = inputdata.get( 0 ).getImage().createNewImage( "estimation (deconvolved image)" );
 		this.tmp = inputdata.get( 0 ).getImage().createNewImage();
 		
-		
+		// init views
 		views.init( PSFTYPE.MAPG );
 		
 		this.avg = (float)AdjustInput.normAllImages( inputdata );
@@ -77,7 +80,7 @@ public class MAPG
 		for ( final FloatType f : estimation )
 			f.set( avg );
 		
-		this.blur = new FourierConvolutionMAPG<FloatType, FloatType>( images, kernels );
+		this.blur = new FourierConvolutionMAPG<FloatType, FloatType>( images, kernels, weights );
 		
 		// run the deconvolution
 		while ( i < numIterations )
@@ -86,7 +89,7 @@ public class MAPG
 			
 			if ( debug && (i-1) % debugInterval == 0 )
 			{
-				Image< FloatType > psi = getPsi();
+				final Image< FloatType > psi = getPsi();
 				
 				psi.getDisplay().setMinMax( 0, 1 );
 				final ImagePlus tmp = ImageJFunctions.copyToImagePlus( psi );
