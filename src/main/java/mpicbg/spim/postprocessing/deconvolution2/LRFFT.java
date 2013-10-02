@@ -260,9 +260,12 @@ public class LRFFT
 				this.fftConvolution1.setNumThreads();
 				this.fftConvolution1.setKeepImgFFT( false );
 				
-				this.fftConvolution2 = new FourierConvolution<FloatType, FloatType>( this.image, this.kernel2 );	
-				this.fftConvolution2.setNumThreads();
-				this.fftConvolution2.setKeepImgFFT( false );
+				if ( iterationType != PSFTYPE.MAPG )
+				{
+					this.fftConvolution2 = new FourierConvolution<FloatType, FloatType>( this.image, this.kernel2 );	
+					this.fftConvolution2.setNumThreads();
+					this.fftConvolution2.setKeepImgFFT( false );
+				}
 			}
 		}
 		else

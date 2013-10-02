@@ -102,6 +102,8 @@ public class Multi_View_Deconvolution implements PlugIn
 		if ( makeAllPSFSameSize || conf.deconvolutionDisplayPSF >= 3 )
 			size = ExtractPSF.commonSize( fusion.getPointSpreadFunctions() );
 		
+		IJ.log( "Common size for all PSF's: " + Util.printCoordinates( size ) );
+		
 		// get/compute the PSF's
 		final ArrayList< Image< FloatType > > pointSpreadFunctions;
 		
@@ -110,7 +112,11 @@ public class Multi_View_Deconvolution implements PlugIn
 			pointSpreadFunctions = new ArrayList<Image<FloatType>>();
 
 			for ( final Image< FloatType > image : fusion.getPointSpreadFunctions() )
+			{
+				IJ.log( "old size: " + Util.printCoordinates( image.getDimensions() ) );
 				pointSpreadFunctions.add( ExtractPSF.makeSameSize( image, size ) );
+				IJ.log( "new size: " + Util.printCoordinates( pointSpreadFunctions.get( pointSpreadFunctions.size() - 1 ).getDimensions() ) );
+			}
 		}
 		else
 		{
@@ -131,10 +137,7 @@ public class Multi_View_Deconvolution implements PlugIn
 				final Image< FloatType > psf = pointSpreadFunctions.get( i );
 				final String title = "PSF for " + viewStructure.getViews().get( i ).getName();
 				
-				if ( makeAllPSFSameSize )
-					ImageJFunctions.show( psf ).setTitle( title );
-				else
-					ImageJFunctions.show( ExtractPSF.makeSameSize( psf, size ) ).setTitle( title );			
+				ImageJFunctions.show( psf ).setTitle( title );
 			}
 		}
 		else if ( conf.deconvolutionDisplayPSF == 5 )
