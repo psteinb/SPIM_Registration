@@ -48,7 +48,6 @@ import mpicbg.imglib.outofbounds.OutOfBoundsStrategyFactory;
 import mpicbg.imglib.outofbounds.OutOfBoundsStrategyMirrorFactory;
 import mpicbg.imglib.type.numeric.RealType;
 import mpicbg.imglib.type.numeric.complex.ComplexFloatType;
-import mpicbg.imglib.type.numeric.real.FloatType;
 
 /**
  * Specialized implementation of the Fourier Convolution based on the python code of Verveer et al., Nature Methods (2007)
@@ -77,8 +76,9 @@ public class FourierConvolutionMAPG<T extends RealType<T>, S extends RealType<S>
 
 	public FourierConvolutionMAPG( final ArrayList<Image<T>> images, final ArrayList<Image<S>> kernels, final ArrayList<Image<T>> weights )
 	{
-		if ( images == null || kernels == null || images.size() == 0 || images.size() != kernels.size() )
-			throw new RuntimeException( "Same number (>0) of images and kernels required." );
+		if ( images == null || kernels == null || weights == null ||
+			 images.size() == 0 || images.size() != kernels.size() || images.size() != weights.size() )
+			throw new RuntimeException( "Same number (>0) of images, weights and kernels required." );
 
 		this.numDimensions = images.get( 0 ).getNumDimensions();
 		this.numViews = images.size();
@@ -400,7 +400,6 @@ public class FourierConvolutionMAPG<T extends RealType<T>, S extends RealType<S>
 		
 		cursorK.fwd( start );
 		cursorI.fwd( start );
-		final ComplexFloatType t = new ComplexFloatType();
 		
 		for ( long l = 0; l < loopSize; ++l )
 		{
