@@ -342,7 +342,7 @@ public class Multi_View_Deconvolution implements PlugIn
 		gd.addChoice( "ImgLib_container_(processing)", imglibContainer, imglibContainer[ defaultContainerProcess ] );
 
 		gd.addMessage("");
-		gd.addMessage("This Plugin is developed by Stephan Preibisch\n" + myURL);
+		gd.addMessage("This Plugin is developed by Stephan Preibisch\n" + myURL + "\nforked by Peter Steinbach");
 
 		MultiLineLabel text = (MultiLineLabel) gd.getMessage();
 		Bead_Registration.addHyperLinkListener(text, myURL);
