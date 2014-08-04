@@ -256,7 +256,7 @@ public class Multi_View_Deconvolution implements PlugIn
 
 			if ( conf.writeOutputImage == 1 )
 			{
-				ImageJFunctions.saveAsTiffs( deconvolved, conf.outputdirectory, "DC(l=" + lambda + ")_t" + timePoint + "_ch" + viewStructure.getChannelNum( 0 ), ImageJFunctions.GRAY32 );
+				ImageJFunctions.saveAsTiffs( deconvolved, conf.outputdirectory, "DC_lambda" + lambda + "_t" + timePoint + "_ch" + viewStructure.getChannelNum( 0 ), ImageJFunctions.GRAY32 );
 			}
 			else if ( conf.writeOutputImage == 2 )
 			{
@@ -332,10 +332,10 @@ public class Multi_View_Deconvolution implements PlugIn
 	{
 		final GenericDialogPlus gd = new GenericDialogPlus( "Multi-View Deconvolution" );
 		
-		gd.addDirectoryField( "SPIM_data_directory", Bead_Registration.spimDataDirectory );
-		gd.addStringField( "Pattern_of_SPIM files", Bead_Registration.fileNamePattern, 25 );
-		gd.addStringField( "Timepoints_to_process", Bead_Registration.timepoints );
-		gd.addStringField( "Angles to process", Bead_Registration.angles );
+		gd.addDirectoryField( "SPIM_data_directory", "/scratch/steinbac/multiview_data/celegans" );
+		gd.addStringField( "Pattern_of_SPIM files", "spim_TL{t}_Angle{a}.tif", 25 );
+		gd.addStringField( "Timepoints_to_process", "1" );
+		gd.addStringField( "Angles to process", "0-300:60" );
 		
 		gd.addMessage("");
 		gd.addChoice( "ImgLib_container_(input files)", imglibContainer, imglibContainer[ defaultContainerInput ] );
@@ -526,23 +526,23 @@ public class Multi_View_Deconvolution implements PlugIn
 			gd2.addChoice( "Registration for channel " + channels.get( c ), choices, choices[ suggest[ c ] ]);
 
 		gd2.addMessage( "" );
-		gd2.addNumericField( "Crop_output_image_offset_x", Multi_View_Fusion.cropOffsetXStatic, 0 );
-		gd2.addNumericField( "Crop_output_image_offset_y", Multi_View_Fusion.cropOffsetYStatic, 0 );
-		gd2.addNumericField( "Crop_output_image_offset_z", Multi_View_Fusion.cropOffsetZStatic, 0 );
-		gd2.addNumericField( "Crop_output_image_size_x", Multi_View_Fusion.cropSizeXStatic, 0 );
-		gd2.addNumericField( "Crop_output_image_size_y", Multi_View_Fusion.cropSizeYStatic, 0 );
-		gd2.addNumericField( "Crop_output_image_size_z", Multi_View_Fusion.cropSizeZStatic, 0 );
+		gd2.addNumericField( "Crop_output_image_offset_x", 196 , 0);
+		gd2.addNumericField( "Crop_output_image_offset_y", 524 , 0);
+		gd2.addNumericField( "Crop_output_image_offset_z", 312 , 0);
+		gd2.addNumericField( "Crop_output_image_size_x",   252 , 0);
+		gd2.addNumericField( "Crop_output_image_size_y",   212 , 0);
+		gd2.addNumericField( "Crop_output_image_size_z",   220 , 0);
 		gd2.addMessage( "" );	
 		gd2.addChoice( "Type_of_iteration", iterationTypeString, iterationTypeString[ defaultIterationType ] );
 		gd2.addChoice( "OSEM_acceleration", osemspeedupChoice, osemspeedupChoice[ defaultOSEMspeedupIndex ] );
-		gd2.addNumericField( "Number_of_iterations", defaultNumIterations, 0 );
+		gd2.addNumericField( "Number_of_iterations", 1, 0 );
 		gd2.addCheckbox( "Use_Tikhonov_regularization", defaultUseTikhonovRegularization );
 		gd2.addNumericField( "Tikhonov_parameter", defaultLambda, 4 );
 		gd2.addChoice( "Compute", blocks, blocks[ defaultBlockSizeIndex ] );
 		gd2.addChoice( "Compute_on", computationOn, computationOn[ defaultComputationIndex ] );
 		gd2.addChoice( "PSF_estimation", extractPSFs, extractPSFs[ defaultExtractPSF ] );
 		gd2.addChoice( "PSF_display", displayPSF, displayPSF[ defaultDisplayPSF ] );
-		gd2.addCheckbox( "Debug_mode", defaultDebugMode );
+		gd2.addCheckbox( "Debug_mode", true );
 		gd2.addMessage( "" );
 		gd2.addCheckbox( "Load_input_images_sequentially", defaultLoadImagesSequentially );
 		//gd2.addCheckbox( "Display_fused_image", displayFusedImageStatic );
