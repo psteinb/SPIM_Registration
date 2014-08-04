@@ -104,7 +104,7 @@ public class BayesMVDeconvolution implements Deconvolver
 	    for ( int view = 0; view < numViews; ++view )
 		{
 		    final LRFFT processingData = data.get( view );
-		    String inputname	= "input_view_"+view;
+		    String inputname	= "image_view_"+view;
 		    String weightsname  = "weights_view_"+view;
 		    String kernel1name  = "kernel1_view_"+view;
 		    String kernel2name  = "kernel2_view_"+view;
