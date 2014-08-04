@@ -170,15 +170,14 @@ public class BayesMVDeconvolution implements Deconvolver
 
 				this.ci.setStack( this.stack, 1, this.psi.getDimension( 2 ), stack.getSize() / this.psi.getDimension( 2 ) );	
 			    }
-			/*
-			  Image<FloatType> psiCopy = psi.clone();
-			  //ViewDataBeads.normalizeImage( psiCopy );
-			  psiCopy.setName( "Iteration " + i + " l=" + lambda );
-			  psiCopy.getDisplay().setMinMax( 0, 1 );
-			  ImageJFunctions.copyToImagePlus( psiCopy ).show();
-			  psiCopy.close();
-			  psiCopy = null;*/
+		
 		    }
+
+		if ( debug ){
+		    	
+			final FileSaver psisaver = new FileSaver(ImageJFunctions.copyToImagePlus( psi ));
+			psisaver.saveAsTiffStack("./psi_"+(i-1)+".tif");
+		}
 	    }
 		
 	IJ.log( "DONE (" + new Date(System.currentTimeMillis()) + ")." );
