@@ -9,6 +9,9 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.Vector;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import spim.Threads;
 import mpicbg.imglib.cursor.Cursor;
@@ -36,6 +39,8 @@ public class BayesMVDeconvolution implements Deconvolver
 	final static float minValue = 0.0001f;
 
 	final int numViews, numDimensions;
+    
+    final ExecutorService thread_pool;
     final float avg;
     final double lambda;
     
@@ -61,6 +66,7 @@ public class BayesMVDeconvolution implements Deconvolver
 		this.data = views.getViews();
 		this.views = views;
 		this.numViews = data.size();
+		thread_pool = Executors.newFixedThreadPool(Threads.numThreads());
 		this.numDimensions = data.get( 0 ).getImage().getNumDimensions();
 		this.lambda = lambda;
 		
@@ -98,7 +104,7 @@ public class BayesMVDeconvolution implements Deconvolver
 		IOFunctions.println( "Deconvolved image container: " + psi.getImageFactory().getContainerFactory().getClass().getSimpleName() );
 		
 		//this.stack = new ImageStack( this.psi.getDimension( 0 ), this.psi.getDimension( 1 ) );
-		
+
 		// run the deconvolution
 		while ( i < numIterations )
 		{
@@ -152,7 +158,8 @@ public class BayesMVDeconvolution implements Deconvolver
 				psiCopy = null;*/
 			}
 		}
-		
+		thread_pool.shutdown();
+		thread_pool.awaitTermination(1, TimeUnit.DAYS);
 		IJ.log( "DONE (" + new Date(System.currentTimeMillis()) + ")." );
 	}
 	
@@ -234,11 +241,16 @@ public class BayesMVDeconvolution implements Deconvolver
 	
 	public void runIteration() 
 	{
-		runIteration( psi, data, lambda, minValue, collectStatistics, i++ );
+	    runIteration( psi, data, lambda, minValue, collectStatistics, i++, thread_pool );
 	}
 
-	final private static void runIteration( final Image< FloatType> psi, final ArrayList< LRFFT > data, 
-			final double lambda, final float minValue, final boolean collectStatistic, final int iteration )
+	final private static void runIteration( final Image< FloatType> psi, 
+						final ArrayList< LRFFT > data, 
+						final double lambda, 
+						final float minValue, 
+						final boolean collectStatistic, 
+						final int iteration,
+						final ExecutorService pool)
 	{
 		IJ.log( "iteration: " + iteration + " (" + new Date(System.currentTimeMillis()) + ")" );
 		
@@ -252,6 +264,8 @@ public class BayesMVDeconvolution implements Deconvolver
 			lastIteration = psi.clone();
 		else
 			lastIteration = null;
+
+		
 
 		//int view = iteration % numViews;
 		for ( int view = 0; view < numViews; ++view )
@@ -269,10 +283,12 @@ public class BayesMVDeconvolution implements Deconvolver
 			// size = 666, 363, 537
 			
 			// compute quotient img/psiBlurred
-			final AtomicInteger ai = new AtomicInteger(0);					
-	        final Thread[] threads = SimpleMultiThreading.newThreads( numThreads );
-	        for ( int ithread = 0; ithread < threads.length; ++ithread )
-	            threads[ithread] = new Thread(new Runnable()
+			final AtomicInteger ai = new AtomicInteger(0);		
+			
+	        // final Thread[] threads = SimpleMultiThreading.newThreads( numThreads );
+			
+	        for ( int ithread = 0; ithread <numThreads; ++ithread )
+	            pool.submit(new Runnable()
 	            {
 	                public void run()
 	                {
@@ -286,7 +302,7 @@ public class BayesMVDeconvolution implements Deconvolver
 	                }
 	            });
 	        
-	        SimpleMultiThreading.startAndJoin( threads );
+	        //SimpleMultiThreading.startAndJoin( threads );
 
 			//System.out.println( view + " b: " + (time - System.currentTimeMillis()) + " ms." );
 
@@ -299,8 +315,8 @@ public class BayesMVDeconvolution implements Deconvolver
 			System.out.println( view + " b: " + (time - System.currentTimeMillis()) + " ms." );
 
 			ai.set( 0 );
-	        for ( int ithread = 0; ithread < threads.length; ++ithread )
-	            threads[ithread] = new Thread(new Runnable()
+	        for ( int ithread = 0; ithread <numThreads; ++ithread )
+	            pool.submit(new Runnable()
 	            {
 	                public void run()
 	                {
@@ -314,7 +330,7 @@ public class BayesMVDeconvolution implements Deconvolver
 	                }
 	            });
 	        
-	        SimpleMultiThreading.startAndJoin( threads );
+	        //SimpleMultiThreading.startAndJoin( threads );
 
 			// the result from the previous iteration
 			//System.out.println( view + " d: " + (time - System.currentTimeMillis()) + " ms." );
@@ -323,12 +339,12 @@ public class BayesMVDeconvolution implements Deconvolver
 		if ( collectStatistic )
 		{
 			final AtomicInteger ai = new AtomicInteger(0);					
-	        final Thread[] threads = SimpleMultiThreading.newThreads( numThreads );
+			//	        final Thread[] threads = SimpleMultiThreading.newThreads( numThreads );
 	        
 	        final double[][] sumMax = new double[ numThreads ][ 2 ];
 	        
-	        for ( int ithread = 0; ithread < threads.length; ++ithread )
-	            threads[ithread] = new Thread(new Runnable()
+	        for ( int ithread = 0; ithread <numThreads; ++ithread )
+	            pool.submit(new Runnable()
 	            {
 	                public void run()
 	                {
@@ -342,7 +358,7 @@ public class BayesMVDeconvolution implements Deconvolver
 	                }
 	            });
 	        
-	        SimpleMultiThreading.startAndJoin( threads );
+	        //SimpleMultiThreading.startAndJoin( threads );
 			
 	        // accumulate the results from the individual threads
 			double sumChange = 0;
