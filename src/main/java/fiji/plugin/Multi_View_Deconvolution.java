@@ -43,7 +43,7 @@ import spim.process.cuda.CUDAFourierConvolution;
  */
 public class Multi_View_Deconvolution implements PlugIn
 {
-	final private String myURL = "http://fly.mpi-cbg.de/preibisch";
+	final private String myURL = "steinbach@scionics.de on try_thread_pool";
 	
 	// for optimization of block size this is essential
 	public static boolean makeAllPSFSameSize = false;
